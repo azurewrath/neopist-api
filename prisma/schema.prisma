@@ -1,0 +1,287 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  role         String   @db.VarChar(20)
+  avatarUrl    String?  @map("avatar_url") @db.Text
+  coverUrl     String?  @map("cover_url") @db.Text
+  goal         String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  therapist            Therapist?
+  testResults          ClientTestResult[]
+  matches              TherapistMatch[]
+  appointments         Appointment[]
+  reviews              Review[]
+  blogPosts            BlogPost[]
+  moodEntries          MoodEntry[]
+  clientNotesReceived  ClientNote[] @relation("ClientNoteClient")
+
+  @@map("users")
+}
+
+model Therapist {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  title           String?  @db.VarChar(255)
+  about           String?  @db.Text
+  experienceYears Int      @default(0) @map("experience_years")
+  sessionPrice    Int      @default(0) @map("session_price")
+  coverUrl        String?  @map("cover_url") @db.Text
+  isVerified      Boolean  @default(false) @map("is_verified")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialties  TherapistSpecialty[]
+  educations   TherapistEducation[]
+  certificates TherapistCertificate[]
+  matches      TherapistMatch[]
+  appointments Appointment[]
+  reviews      Review[]
+
+  availabilities TherapistAvailability[]
+  subscription   Subscription?
+  clientNotes    ClientNote[]
+
+  @@map("therapists")
+}
+
+model TherapistSpecialty {
+  therapistId String @map("therapist_id") @db.Uuid
+  specialty   String @db.VarChar(100)
+
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@id([therapistId, specialty])
+  @@map("therapist_specialties")
+}
+
+model TherapistEducation {
+  id          String   @id @default(uuid()) @db.Uuid
+  therapistId String   @map("therapist_id") @db.Uuid
+  title       String   @db.VarChar(255)
+  school      String?  @db.VarChar(255)
+  year        Int?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@map("therapist_educations")
+}
+
+model TherapistCertificate {
+  id          String   @id @default(uuid()) @db.Uuid
+  therapistId String   @map("therapist_id") @db.Uuid
+  title       String?  @db.VarChar(255)
+  year        Int?
+  fileUrl     String?  @map("file_url") @db.Text
+  fileName    String?  @map("file_name") @db.VarChar(255)
+  status      String   @default("pending") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@map("therapist_certificates")
+}
+
+model TestQuestion {
+  id           String  @id @default(uuid()) @db.Uuid
+  questionText String  @map("question_text") @db.Text
+  dimension    String? @db.VarChar(50)
+  sortOrder    Int     @default(0) @map("sort_order")
+  isActive     Boolean @default(true) @map("is_active")
+
+  answers TestAnswer[]
+
+  @@map("test_questions")
+}
+
+model TestAnswer {
+  id         String @id @default(uuid()) @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  answerText String @map("answer_text") @db.Text
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  question TestQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("test_answers")
+}
+
+model ClientTestResult {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  answers     Json
+  preferences Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("client_test_results")
+}
+
+model TherapistMatch {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  therapistId String   @map("therapist_id") @db.Uuid
+  matchScore  Int      @default(0) @map("match_score")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, therapistId])
+  @@map("therapist_matches")
+}
+
+model Appointment {
+  id          String   @id @default(uuid()) @db.Uuid
+  clientId    String   @map("client_id") @db.Uuid
+  therapistId String   @map("therapist_id") @db.Uuid
+  startTime   DateTime @map("start_time") @db.Timestamptz()
+  endTime     DateTime @map("end_time") @db.Timestamptz()
+  status      String   @default("pending") @db.VarChar(20)
+  type        String   @default("online") @db.VarChar(20)
+  notes       String?  @db.Text
+  clientNote  String?  @map("client_note") @db.Text
+  price       Int?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  client    User      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@map("appointments")
+}
+
+model Review {
+  id          String   @id @default(uuid()) @db.Uuid
+  clientId    String   @map("client_id") @db.Uuid
+  therapistId String   @map("therapist_id") @db.Uuid
+  rating      Int
+  comment     String?  @db.Text
+  isAnonymous Boolean  @default(false) @map("is_anonymous")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  client    User      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, therapistId])
+  @@map("reviews")
+}
+
+model BlogPost {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(255)
+  content     String?  @db.Text
+  excerpt     String?  @db.Text
+  coverImage  String?  @map("cover_image") @db.Text
+  authorId    String?  @map("author_id") @db.Uuid
+  status      String   @default("draft") @db.VarChar(20)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz()
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  author User? @relation(fields: [authorId], references: [id])
+
+  @@map("blog_posts")
+}
+
+model Banner {
+  id        String  @id @default(uuid()) @db.Uuid
+  title     String? @db.VarChar(255)
+  subtitle  String? @db.Text
+  imageUrl  String? @map("image_url") @db.Text
+  linkUrl   String? @map("link_url") @db.Text
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@map("banners")
+}
+
+model SiteSetting {
+  key       String   @id @db.VarChar(100)
+  value     Json
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("site_settings")
+}
+
+model TherapistAvailability {
+  id          String   @id @default(uuid()) @db.Uuid
+  therapistId String   @map("therapist_id") @db.Uuid
+  date        String   @db.VarChar(10)
+  hour        Int
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  @@unique([therapistId, date, hour])
+  @@map("therapist_availabilities")
+}
+
+model Subscription {
+  id          String   @id @default(uuid()) @db.Uuid
+  therapistId String   @unique @map("therapist_id") @db.Uuid
+  plan        String   @default("basic") @db.VarChar(50)
+  status      String   @default("active") @db.VarChar(20)
+  startDate   DateTime @map("start_date") @db.Timestamptz()
+  endDate     DateTime @map("end_date") @db.Timestamptz()
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  therapist Therapist            @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  payments  SubscriptionPayment[]
+
+  @@map("subscriptions")
+}
+
+model SubscriptionPayment {
+  id             String   @id @default(uuid()) @db.Uuid
+  subscriptionId String   @map("subscription_id") @db.Uuid
+  amount         Int
+  paidAt         DateTime @map("paid_at") @db.Timestamptz()
+  description    String?  @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("subscription_payments")
+}
+
+model MoodEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  score     Int
+  date      String   @db.VarChar(10)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("mood_entries")
+}
+
+model ClientNote {
+  id          String   @id @default(uuid()) @db.Uuid
+  therapistId String   @map("therapist_id") @db.Uuid
+  clientId    String   @map("client_id") @db.Uuid
+  content     String   @db.Text
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  client    User      @relation("ClientNoteClient", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([therapistId, clientId])
+  @@map("client_notes")
+}
