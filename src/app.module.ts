@@ -11,6 +11,7 @@ import { AppointmentsModule } from "./appointments/appointments.module";
 import { TherapistMgmtModule } from "./therapist-mgmt/therapist-mgmt.module";
 import { ReviewsModule } from "./reviews/reviews.module";
 import { MoodModule } from "./mood/mood.module";
+import { QuestionsModule } from "./questions/questions.module";
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { MoodModule } from "./mood/mood.module";
     TherapistMgmtModule,
     ReviewsModule,
     MoodModule,
+    QuestionsModule,
   ],
   providers: [PrismaService],
 })

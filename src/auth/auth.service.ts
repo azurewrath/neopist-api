@@ -27,12 +27,73 @@ export class AuthService {
 
     if (dto.role === "therapist") {
       await this.prisma.therapist.create({
-        data: { userId: user.id },
+        data: { userId: user.id, sessionPrice: 1500 },
       });
     }
 
     const token = this.jwt.sign({ sub: user.id, role: user.role });
     return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+  }
+
+  async therapistApply(dto: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    tcKimlik?: string;
+    birthDate?: string;
+    country?: string;
+    city?: string;
+    gender?: string;
+    linkedinUrl?: string;
+    websiteUrl?: string;
+    marketingConsent: boolean;
+    membershipAccepted: boolean;
+    licenseDiplomaUrl: string;
+    masterDiplomaUrl?: string | null;
+    cvUrl?: string | null;
+  }) {
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existing) throw new ConflictException("Bu e-posta zaten kayıtlı.");
+
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        name: dto.name,
+        passwordHash,
+        role: "therapist",
+        phone: dto.phone || null,
+        tcKimlik: dto.tcKimlik || null,
+        birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
+        country: dto.country || null,
+        city: dto.city || null,
+        gender: dto.gender || null,
+        marketingConsent: dto.marketingConsent,
+        membershipAccepted: dto.membershipAccepted,
+      },
+    });
+
+    await this.prisma.therapist.create({
+      data: {
+        userId: user.id,
+        isVerified: false,
+        sessionPrice: 1500,
+        linkedinUrl: dto.linkedinUrl || null,
+        websiteUrl: dto.websiteUrl || null,
+        licenseDiplomaUrl: dto.licenseDiplomaUrl,
+        masterDiplomaUrl: dto.masterDiplomaUrl || null,
+        cvUrl: dto.cvUrl || null,
+      },
+    });
+
+    const token = this.jwt.sign({ sub: user.id, role: user.role });
+    return {
+      token,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      message: "Başvurunuz alındı. Onay sonrası profilinizi tamamlayabilirsiniz.",
+    };
   }
 
   async login(email: string, password: string) {
